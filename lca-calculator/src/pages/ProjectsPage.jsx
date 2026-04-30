@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { BENCHMARKS } from '../lib/calculations.js'
+import { BENCHMARKS, FALLBACK_EF } from '../lib/calculations.js'
 
 function fmt(n) { return isNaN(n) ? '0' : Number(n).toLocaleString('en-IN', { maximumFractionDigits: 1 }) }
 
@@ -16,10 +16,16 @@ const STATUS_CONFIG = {
 function buildResults(project, boqItems) {
   if (!boqItems || boqItems.length === 0) return null
 
-  const lineItems = boqItems.map(item => ({
-    ...item,
-    qty_tonnes: item.ef_value > 0 ? item.material_co2 / item.ef_value : item.quantity,
-  }))
+  const lineItems = boqItems.map(item => {
+    const category = item.category ||
+      FALLBACK_EF.find(e => e.material_name === item.material_name)?.category ||
+      'Other'
+    return {
+      ...item,
+      category,
+      qty_tonnes: item.ef_value > 0 ? item.material_co2 / item.ef_value : item.quantity,
+    }
+  })
 
   const total_co2_kg     = lineItems.reduce((s, r) => s + (r.total_co2 || 0), 0)
   const total_co2_tonnes = total_co2_kg / 1000

@@ -119,6 +119,7 @@ export default function InputPage({ projectData, setProjectData, setLcaResults }
           validRows.map(r => ({
             project_id: proj.id,
             material_name: r.material_name,
+            category: r.category || '',
             quantity: parseFloat(r.quantity),
             unit: r.unit,
             supplier_city: r.supplier_city,
