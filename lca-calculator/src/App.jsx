@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage.jsx'
 import InputPage from './pages/InputPage.jsx'
 import ResultsPage from './pages/ResultsPage.jsx'
 import EFTablePage from './pages/EFTablePage.jsx'
+import ProjectsPage from './pages/ProjectsPage.jsx'
 
 export default function App() {
   const [projectData, setProjectData] = useState(null)
@@ -29,6 +30,12 @@ export default function App() {
             <ResultsPage lcaResults={lcaResults} projectData={projectData} />
           } />
           <Route path="/ef-table" element={<EFTablePage />} />
+          <Route path="/projects" element={
+            <ProjectsPage
+              setProjectData={setProjectData}
+              setLcaResults={setLcaResults}
+            />
+          } />
         </Routes>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 
 const steps = [
+  { path: '/projects', label: 'Projects', num: '🗂' },
   { path: '/input', label: 'Data Input', num: '1' },
   { path: '/results', label: 'Results', num: '2' },
   { path: '/ef-table', label: 'EF Master Table', num: '3' },
