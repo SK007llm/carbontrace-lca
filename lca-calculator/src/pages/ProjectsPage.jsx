@@ -80,6 +80,12 @@ export default function ProjectsPage({ setProjectData, setLcaResults }) {
     setLoading(false)
   }
 
+  function handleNew() {
+    setProjectData(null)
+    setLcaResults(null)
+    navigate('/input')
+  }
+
   function handleView(project) {
     const results = buildResults(project, project.boq_items)
     setProjectData(project)
@@ -114,7 +120,7 @@ export default function ProjectsPage({ setProjectData, setLcaResults }) {
             {projects.length} project{projects.length !== 1 ? 's' : ''} saved
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/input')}>+ New Project</button>
+        <button className="btn btn-primary" onClick={handleNew}>+ New Project</button>
       </div>
 
       {error && <div className="alert alert-warn mb-3">{error}</div>}
@@ -126,7 +132,7 @@ export default function ProjectsPage({ setProjectData, setLcaResults }) {
           <p style={{ color: 'var(--text2)', marginTop: '0.5rem' }}>
             Create your first LCA assessment to see it here.
           </p>
-          <button className="btn btn-primary mt-3" onClick={() => navigate('/input')}>
+          <button className="btn btn-primary mt-3" onClick={handleNew}>
             Start New Project →
           </button>
         </div>
