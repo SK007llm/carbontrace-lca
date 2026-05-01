@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase.js'
 import { FALLBACK_EF, calculateLCA, TRANSPORT_EF } from '../lib/calculations.js'
 
@@ -139,33 +140,92 @@ export default function InputPage({ projectData, setProjectData, setLcaResults }
     navigate('/results')
   }
 
+  function parseCSVToGrid(text) {
+    return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(Boolean).map(line => {
+      const result = []
+      let cell = ''
+      let inQuotes = false
+      for (const ch of line) {
+        if (ch === '"') { inQuotes = !inQuotes }
+        else if (ch === ',' && !inQuotes) { result.push(cell.trim()); cell = '' }
+        else { cell += ch }
+      }
+      result.push(cell.trim())
+      return result
+    })
+  }
+
+  function processUploadedGrid(grid) {
+    if (grid.length < 2) { alert('File appears empty or has no data rows.'); return }
+    const headers = grid[0].map(h => String(h).trim().toLowerCase())
+    const newRows = grid.slice(1)
+      .filter(row => row.some(c => String(c).trim() !== ''))
+      .map(vals => {
+        const obj = emptyRow()
+        headers.forEach((h, i) => {
+          const val = String(vals[i] ?? '').trim()
+          if (h.includes('material'))                        obj.material_name  = val
+          if (h.includes('qty') || h === 'quantity')        obj.quantity       = val
+          if (h === 'unit')                                  obj.unit           = val || 'tonne'
+          if (h.includes('city') || h.includes('supplier')) obj.supplier_city  = val
+          if (h.includes('distance'))                        obj.distance_km    = val || '150'
+          if (h.includes('transport'))                       obj.transport_mode = val || 'Road'
+        })
+        const ef = efList.find(e => e.material_name.toLowerCase() === obj.material_name.toLowerCase())
+        if (ef) { obj.ef_value = String(ef.ef_value); obj.category = ef.category; obj.source = ef.source }
+        return obj
+      })
+      .filter(r => r.material_name)
+
+    if (newRows.length === 0) {
+      alert('No matching materials found. Make sure your file has a "material_name" column with names that match the EF database.')
+      return
+    }
+    setRows(newRows)
+  }
+
   function handleBOQUpload(e) {
     const file = e.target.files[0]
     if (!file) return
-    // Simple CSV parser
+    e.target.value = ''
+
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name)
     const reader = new FileReader()
-    reader.onload = (ev) => {
-      const lines = ev.target.result.split('\n').filter(Boolean)
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-      const newRows = lines.slice(1).map(line => {
-        const vals = line.split(',')
-        const obj = emptyRow()
-        headers.forEach((h, i) => {
-          if (h.includes('material')) obj.material_name = vals[i]?.trim() || ''
-          if (h.includes('qty') || h === 'quantity') obj.quantity = vals[i]?.trim() || ''
-          if (h === 'unit') obj.unit = vals[i]?.trim() || 'tonne'
-          if (h.includes('city') || h.includes('supplier')) obj.supplier_city = vals[i]?.trim() || ''
-          if (h.includes('distance')) obj.distance_km = vals[i]?.trim() || '150'
-          if (h.includes('transport')) obj.transport_mode = vals[i]?.trim() || 'Road'
-        })
-        // Auto-fill EF
-        const ef = efList.find(e => e.material_name.toLowerCase() === obj.material_name.toLowerCase())
-        if (ef) { obj.ef_value = String(ef.ef_value); obj.category = ef.category }
-        return obj
-      }).filter(r => r.material_name)
-      if (newRows.length > 0) setRows(newRows)
+
+    if (isExcel) {
+      reader.onload = (ev) => {
+        try {
+          const wb = XLSX.read(ev.target.result, { type: 'array' })
+          const ws = wb.Sheets[wb.SheetNames[0]]
+          const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+          processUploadedGrid(grid)
+        } catch {
+          alert('Could not read Excel file. Please check the format.')
+        }
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      reader.onload = (ev) => {
+        try {
+          processUploadedGrid(parseCSVToGrid(ev.target.result))
+        } catch {
+          alert('Could not read CSV file. Please check the format.')
+        }
+      }
+      reader.readAsText(file)
     }
-    reader.readAsText(file)
+  }
+
+  function downloadTemplate() {
+    const wb = XLSX.utils.book_new()
+    const data = [
+      ['material_name', 'quantity', 'unit', 'supplier_city', 'transport_mode', 'distance_km'],
+      ['Ready-Mix Concrete M25', 500, 'tonne', 'Mumbai', 'Road', 150],
+      ['Reinforcement Steel (TMT)', 50, 'tonne', 'Pune', 'Road', 200],
+      ['Clay Burnt Brick', 30, 'tonne', 'Chennai', 'Rail', 350],
+    ]
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), 'BOQ')
+    XLSX.writeFile(wb, 'BOQ_Template.xlsx')
   }
 
   return (
@@ -254,9 +314,12 @@ export default function InputPage({ projectData, setProjectData, setLcaResults }
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} title="Download Excel template">
+                  ⬇ Template
+                </button>
                 <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', marginBottom: 0 }}>
-                  📎 Upload CSV BOQ
-                  <input type="file" accept=".csv" onChange={handleBOQUpload} style={{ display: 'none' }} />
+                  📎 Upload CSV / Excel
+                  <input type="file" accept=".csv,.xlsx,.xls" onChange={handleBOQUpload} style={{ display: 'none' }} />
                 </label>
                 <button className="btn btn-ghost btn-sm" onClick={addRow}>+ Add Row</button>
               </div>
